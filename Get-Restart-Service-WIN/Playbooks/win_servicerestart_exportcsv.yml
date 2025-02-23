@@ -1,0 +1,60 @@
+---
+- name: Get Windows Service Status and Combine CSVs
+  hosts: windows
+  gather_facts: no
+  tasks:
+    - name: Get Windows Service Status
+      win_service:
+        name: 'Netlogon'
+      register: service_info
+
+    - name: Display service_info variable
+      debug:
+        var: service_info
+
+    - name: Create a CSV File with Service Information
+      copy:
+        dest: "C:\\temp\\service_status.csv"
+        content: |
+          Hostname,Name,State,StartMode,DisplayName
+          {{ hostname }},{{ service_info.name }},{{ service_info.state }},{{ service_info.start_mode }},{{ service_info.display_name }}
+      delegate_to: "{{ inventory_hostname }}"
+
+    - name: Fetch the CSV File to Local Machine
+      fetch:
+        src: "C:\\temp\\service_status.csv"
+        dest: "./reports/service_status_{{ hostname }}.csv"
+        flat: yes
+    - name: Clean Up Temporary Reports on Remote Servers
+      win_file:
+        path: "C:\\temp\\service_status.csv"
+        state: absent
+
+- name: Combine Disk Space Reports into a Single Excel File
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    report_directory: ./reports
+    combined_report: ./reports/Combined_service_status.csv
+    remove_temp_files: true
+  tasks:
+    - name: Merge CSV Files into a Single Excel Report
+      shell: |
+        $csvFiles = Get-ChildItem -Path "{{ report_directory }}" -Filter *.csv
+        $combinedData = @()
+        foreach ($file in $csvFiles) {
+          $combinedData += Import-Csv $file.FullName
+        }
+        $combinedData | Export-csv -Path "{{ combined_report }}"
+        
+      args:
+        executable: pwsh
+    - name: Remove Temporary CSV Files After Consolidation
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_fileglob:
+        - "{{ report_directory }}/service*.csv"
+      when: remove_temp_files | default(true)
+

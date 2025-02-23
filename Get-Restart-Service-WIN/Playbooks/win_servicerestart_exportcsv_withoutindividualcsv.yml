@@ -1,0 +1,45 @@
+---
+- name: Get Windows Service Status and Combine CSVs
+  hosts: windows
+  gather_facts: no
+  tasks:
+    - name: Get Windows Service Status
+      win_service:
+        name: 'Netlogon'
+      register: service_info
+
+    - name: Prepare Service Data for CSV
+      set_fact:
+        service_data:
+          Hostname: "{{ hostname }}"
+          Name: "{{ service_info.name | default('N/A') }}"
+          State: "{{ service_info.state | default('N/A') }}"
+          StartMode: "{{ service_info.start_mode | default('N/A') }}"
+          DisplayName: "{{ service_info.display_name | default('N/A') }}"
+
+- name: Aggregate Service Data on Localhost
+  hosts: localhost
+  gather_facts: no
+  vars:
+    csv_report: ./reports/Combined_service_status.csv
+  tasks:
+    - name: Collect Service Data from All Hosts
+      set_fact:
+        all_service_data: "{{ all_service_data | default([]) + [hostvars[item]['service_data']] }}"
+      loop: "{{ groups['windows'] }}"
+
+    - name: Ensure Reports Directory Exists
+      file:
+        path: ./reports
+        state: directory
+        mode: '0755'
+
+    - name: Write Combined Data to CSV
+      copy:
+        dest: "{{ csv_report }}"
+        content: |
+          Hostname,Name,State,StartMode,DisplayName
+          {% for item in all_service_data %}
+          {{ item.Hostname }},{{ item.Name }},{{ item.State }},{{ item.StartMode }},{{ item.DisplayName }}
+          {% endfor %}
+

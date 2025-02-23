@@ -1,0 +1,14 @@
+---
+- name: Check Windows Service Status
+  hosts: windows
+  tasks:
+    - name: Check the status of a specific Windows service
+      win_service:
+        name: 'wuauserv'
+        state: stopped
+        start_mode: manual
+      register: service_status
+
+    - name: Display the status of the service
+      debug:
+        msg: "The status of the Windows Update service on {{ hostname }} is: {{ service_status.state }} and start mode is {{ service_status.start_mode }}"

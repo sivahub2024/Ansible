@@ -1,0 +1,12 @@
+---
+- name: Check Windows Service Status
+  hosts: windows
+  tasks:
+    - name: Check the status of a specific Windows service
+      win_service:
+        name: 'wuauserv'  # Change this to the name of the service you want to check
+      register: service_status
+
+    - name: Display the status of the service
+      debug:
+        msg: "The status of the Windows Update service is: {{ service_status.state }}"

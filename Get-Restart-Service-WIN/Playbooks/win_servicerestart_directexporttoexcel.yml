@@ -1,0 +1,71 @@
+---
+- name: Get Windows Service Status and Generate Single Excel Report
+  hosts: windows
+  gather_facts: no
+  tasks:
+    - name: Get Windows Service Status
+      win_service:
+        name: 'Netlogon'
+      register: service_info
+
+    - name: Prepare Service Data for Excel
+      set_fact:
+        service_data:
+          Hostname: "{{ hostname }}"
+          Name: "{{ service_info.name | default('N/A') }}"
+          State: "{{ service_info.state | default('N/A') }}"
+          StartMode: "{{ service_info.start_mode | default('N/A') }}"
+          DisplayName: "{{ service_info.display_name | default('N/A') }}"
+
+- name: Generate Single Excel Report on Localhost
+  hosts: localhost
+  gather_facts: no
+  vars:
+    # Get current date and time from the system
+    current_datetime: "{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}"
+    # Add current date and time to the report name
+    excel_report: "./reports/Combined_service_status_{{ current_datetime }}.xlsx"
+  tasks:
+    - name: Collect Service Data from All Hosts
+      set_fact:
+        all_service_data: "{{ all_service_data | default([]) + [hostvars[item]['service_data']] }}"
+      loop: "{{ groups['windows'] }}"
+      when: hostvars[item]['service_data'] is defined
+
+    - name: Ensure Reports Directory Exists
+      file:
+        path: ./reports
+        state: directory
+        mode: '0755'
+
+    - name: Ensure Scripts Directory Exists
+      file:
+        path: ./scripts
+        state: directory
+        mode: '0755'
+    
+    - name: Create Python Script for Excel Generation
+      copy:
+        dest: "./scripts/generate_excel.py"
+        content: |
+          import pandas as pd
+          import sys
+          import json
+
+          # Load the data
+          data = json.loads(sys.argv[1])
+
+          # Clean data (e.g., fill NaN with empty strings or specific values)
+          df = pd.DataFrame(data).fillna('')
+
+          # Write to Excel
+          df.to_excel(sys.argv[2], index=False, sheet_name="ServiceStatus")
+
+    - name: Execute Python Script to Generate Excel
+      command: >
+        python3 ./scripts/generate_excel.py '{{ all_service_data | to_json }}' '{{ excel_report }}'
+
+    - name: Display Excel Report Path
+      debug:
+        msg: "Excel report generated at {{ excel_report }}"
+
