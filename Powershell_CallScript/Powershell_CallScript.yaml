@@ -16,7 +16,7 @@
         #$SecurePassword = ConvertTo-SecureString $Pass -AsPlainText -Force
         #$cred = New-Object System.Management.Automation.PSCredential ($User, $SecurePassword)
 
-        powershell.exe -ExecutionPolicy Bypass -File "C:\temp\UPTIME\CheckUptime-GenerateColourBasedReport-Invoke_v1.0.ps1" `
+        powershell.exe -ExecutionPolicy Bypass -File "C:\temp\UPTIME\EventLogCheck-1" `
         -ServerListPath "C:\Temp\UPTIME\ServerList.txt" `
         -Username $User `
         -Password $Pass
