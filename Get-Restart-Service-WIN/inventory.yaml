@@ -4,7 +4,7 @@ all:
       hosts:
         192.168.1.10:
           hostname: DC1
-        192.168.1.11:
+        192.168.1.13:
           hostname: DB1
       vars:
         ansible_connection: winrm
