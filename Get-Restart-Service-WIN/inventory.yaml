@@ -6,6 +6,10 @@ all:
           hostname: DC1
         192.168.1.11:
           hostname: DB1
+        192.168.1.205:
+          hostname: SF1
+        192.168.1.208:
+          hostname: SF2  
       vars:
         ansible_connection: winrm
         ansible_port: 5985
