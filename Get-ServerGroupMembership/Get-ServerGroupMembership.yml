@@ -1,0 +1,45 @@
+- name: Get the Windows AD computer object
+  hosts: all
+  become_method: runas
+  become_user: System
+  gather_facts: false
+  tasks:
+    - name: Get ADComputer object
+      win_shell: |
+        $servers = Get-Content C:\temp\ServerList.txt
+        $results = @()
+        foreach ($server in $servers) {
+            try {
+                #$ADComputer = Get-ADComputer -Identity $server -ErrorAction Stop
+                #$Groups = Get-ADPrincipalGroupMembership -Identity $ADComputer | Select-Object -ExpandProperty Name 
+                Get-ADPrincipalGroupMembership -Identity (Get-ADComputer $server) | Select-object Name
+                
+                if ($Groups) {
+                    foreach ($group in $Groups) {
+                        $results += [PSCustomObject]@{
+                            ServerName = $server
+                            GroupName  = $group
+                        }
+                    }
+                } else {
+                    $results += [PSCustomObject]@{
+                        ServerName = $server
+                        GroupName  = "No Groups Found"
+                    }
+                }
+            } catch {
+                $results += [PSCustomObject]@{
+                    ServerName = $server
+                    GroupName  = "Error retrieving AD information"
+                }
+            }
+        }
+        if ($results.Count -eq 0) { 
+            $results = @([PSCustomObject]@{ ServerName = "No Data"; GroupName = "No Groups found" }) 
+        }
+        $results | Export-Csv -Path "C:\temp\Group_Report.csv" -NoTypeInformation -Encoding UTF8
+      register: computer_dn
+
+    - name: Debugging output
+      ansible.builtin.debug:
+        msg: "{{ computer_dn.stdout_lines }}"
