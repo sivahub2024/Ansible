@@ -12,7 +12,7 @@
             try {
                 #$ADComputer = Get-ADComputer -Identity $server -ErrorAction Stop
                 #$Groups = Get-ADPrincipalGroupMembership -Identity $ADComputer | Select-Object -ExpandProperty Name 
-                Get-ADPrincipalGroupMembership -Identity (Get-ADComputer $server) | Select-object Name
+                $Groups = Get-ADPrincipalGroupMembership -Identity (Get-ADComputer $server) | Select-object Name
                 
                 if ($Groups) {
                     foreach ($group in $Groups) {
