@@ -31,6 +31,10 @@
 
           {{ serverlist }},{{ group_names_list | join(',') }}
 
+    - name: Debuging hostname
+      ansible.builtin.debug:
+        msg: "{{ csv_data }}"
+
     - name: "Delegate CSV data from play hosts to localhost"
       ansible.builtin.set_fact:
         csv_data: "{{ ansible_play_hosts | map('extract', hostvars, 'csv_data') |
