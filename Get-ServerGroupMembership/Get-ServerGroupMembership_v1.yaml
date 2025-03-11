@@ -1,0 +1,40 @@
+- name: Get the windows AD computer object
+  hosts: all
+  become_method: runas
+  become_user: System
+  become: false
+  tasks:
+    - name: Extract hostname from FQDN
+      ansible.builtin.set_fact:
+        hostname: "{{ serverlist.split('.')[0] }}"
+
+    - name: Debuging hostname
+      ansible.builtin.debug:
+        msg: "{{ hostname }}"
+
+    - name: Get ADComputer object
+      win_shell: |
+        Get-ADPrincipalGroupMembership -Identity (Get-ADComputer {{ hostname }}) | Select-object Name
+      register: computer_dn
+# $computer = Get-ADComputer -Identity {{ serverlist.split('.')[0] }}
+    - name: Debuging hostname
+      ansible.builtin.debug:
+        msg: "{{ computer_dn }}"
+
+    - name: Set fact with group names
+      ansible.builtin.set_fact:
+        group_names_list: "{{ computer_dn.stdout_lines }}"
+
+    - name: Create CSV content
+      ansible.builtin.set_fact:
+        csv_data: |
+
+          {{ serverlist }},{{ group_names_list | join(',') }}
+
+    - name: "Delegate CSV data from play hosts to localhost"
+      ansible.builtin.set_fact:
+        csv_data: "{{ ansible_play_hosts | map('extract', hostvars, 'csv_data') |
+          select('defined') | flatten }}"
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
