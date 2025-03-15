@@ -1,0 +1,58 @@
+---
+- name: Collect GPO Policies from Windows Servers
+  hosts: windows_servers
+  gather_facts: true
+
+  tasks:
+    - name: Set variables for server and file paths
+      ansible.builtin.set_fact:
+        server_name: "{{ ansible_hostname }}"
+        file_path: "C:\\temp\\{{ inventory_hostname }}.html"
+
+    - name: Ensure C:\temp directory exists
+      ansible.windows.win_file:
+        path: "C:\\temp"
+        state: directory
+
+    - name: Remove existing HTML reports before generating new ones
+      ansible.windows.win_file:
+        path: "{{ file_path }}"
+        state: absent
+      ignore_errors: yes  # Continue even if the file doesn't exist
+
+    - name: Generate GPO report for the server
+      ansible.windows.win_shell: |
+        gpresult /scope computer /h "{{ file_path }}"
+      register: gpo_policies
+      changed_when: gpo_policies.rc == 0
+      failed_when: gpo_policies.rc != 0 and "ERROR" in gpo_policies.stderr
+
+    - name: Debug generated file path
+      ansible.builtin.debug:
+        msg: "Generated GPO report at {{ file_path }}"
+   
+    - name: Ensure Reports Directory Exists
+      delegate_to: localhost
+      file:
+        path: ./reports
+        state: directory
+        mode: '0755'
+      run_once: true
+
+    - name: Verify report exists before fetching
+      ansible.windows.win_stat:
+        path: "{{ file_path }}"
+      register: report_stat
+
+    - name: Fetch generated HTML report from Windows servers to control node
+      ansible.builtin.fetch:
+        src: "{{ file_path }}"
+        dest: "./reports/{{ inventory_hostname }}_{{ ansible_date_time.epoch }}.html"
+        flat: true
+      when: report_stat.stat.exists
+
+    - name: Remove HTML report after fetching
+      ansible.windows.win_file:
+        path: "{{ file_path }}"
+        state: absent
+      ignore_errors: yes
