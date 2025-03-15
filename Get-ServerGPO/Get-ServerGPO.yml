@@ -1,6 +1,6 @@
 ---
 - name: Collect GPO Policies from Windows Servers
-  hosts: windows_servers
+  hosts: all
   gather_facts: true
 
   tasks:
