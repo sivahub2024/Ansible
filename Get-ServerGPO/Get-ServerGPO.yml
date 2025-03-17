@@ -34,7 +34,7 @@
     - name: Ensure Reports Directory Exists
       delegate_to: localhost
       file:
-        path: "~/reports"
+        path: "/home/user1/reports"
         state: directory
         mode: '0755'
       run_once: true
@@ -44,10 +44,14 @@
         path: "{{ file_path }}"
       register: report_stat
 
+    - name: Debug report_stat for troubleshooting
+      ansible.builtin.debug:
+        var: report_stat
+
     - name: Fetch generated HTML report from Windows servers to control node
       ansible.builtin.fetch:
         src: "{{ file_path }}"
-        dest: "~/reports/{{ inventory_hostname }}_{{ ansible_date_time.epoch }}.html"
+        dest: "/home/user1/reports/{{ inventory_hostname }}_{{ ansible_date_time.epoch }}.html"
         flat: true
       when: report_stat.stat.exists
 
