@@ -33,7 +33,7 @@
    
     - name: Ensure Reports Directory Exists
       delegate_to: localhost
-      #become: true
+      become: true
       #become_user: root
       file:
         path: "/home/user1/reports"
