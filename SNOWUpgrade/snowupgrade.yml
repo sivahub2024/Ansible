@@ -1,0 +1,44 @@
+---
+- name: Snow upgrade
+  hosts: all 
+  become: true
+  become_user: system
+  become_method: runas
+  gather_facts: no
+
+  roles:
+    - snow
+
+- name: Upload CSV File to SFS
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  vars:
+    local_csv_file: "/tmp/snow_install_results.csv"
+    Localcsvfile2: "/tmp/reports/"
+
+  tasks:
+    - name: Get current date and time
+      ansible.builtin.setup:
+        gather_subset:
+          - '!all'
+          - '!min'
+          - date_time
+
+    - name: Check if CSV file exists
+      stat:
+        path: "{{ local_csv_file }}"
+      register: csv_file_stat
+
+    - name: Move CSV to SFS Upload Directory
+      command: mv "{{ local_csv_file }}" "{{ Localcsvfile2 }}/Hydro_SNOW_Install_Report_{{ ansible_date_time.epoch }}.csv"
+      when: csv_file_stat.stat.exists
+
+    - name: Print CSV Data in Log
+      ansible.builtin.debug:
+        msg: "CSV saved as Hydro_SNOW_Install_Report_{{ ansible_date_time.epoch }}.csv"
+
+    - name: Delete CSV from /tmp on localhost
+      file:
+        path: "{{ local_csv_file }}"
+        state: absent

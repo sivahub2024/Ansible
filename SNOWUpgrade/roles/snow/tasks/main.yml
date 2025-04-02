@@ -1,0 +1,135 @@
+---
+- name: Gather only the hostname fact
+  ansible.builtin.setup:
+    filter: ansible_hostname
+
+- name: Set installation file paths
+  set_fact:
+    instfile1: "{{ tempdir }}\\{{ filename1 }}"
+    instfile2: "{{ tempdir }}\\{{ filename2 | default(omit) }}"
+    local_csv_file: "/tmp/snow_install_results.csv"
+    install_results: {}
+
+- name: Ensure installation directory exists
+  win_file:
+    path: "{{ tempdir }}"
+    state: directory
+
+- name: Check if installation files exist
+  win_stat:
+    path: "{{ item }}"
+  register: file_check
+  loop:
+    - "{{ instfile1 }}"
+    - "{{ instfile2 | default(omit) }}"
+
+- name: Fail if required files are missing
+  fail:
+    msg: "[FAILED] Missing required file: {{ item.item }}"
+  when: item.item is defined and item.item | length > 0 and not item.stat.exists
+  loop: "{{ file_check.results }}"
+
+- name: Uninstall old ServiceNow agent if present
+  block:
+    - name: Check installed versions
+      win_shell: Get-WmiObject Win32_Product | Where-Object {$_.Name -match 'Snow'}
+      register: old_version
+      changed_when: false
+      failed_when: false
+
+    - name: Uninstall old version
+      win_shell: |
+        $tool="snow"
+        $installed = Get-WmiObject Win32_Product -Filter "name LIKE '%$tool%'"
+        $guid = ($installed).identifyingnumber
+        if ($guid) {
+          "/quiet /passive /uninstall $($guid)" | % {start msiexec.exe $_.split('\s+') -nonew -wait}
+        }
+      when: old_version.stdout is defined and old_version.stdout | length > 0
+      register: uninsop
+
+  rescue:
+    - name: Uninstall failed
+      fail:
+        msg: "Uninstall failed: {{ uninsop.stderr | default('Unknown error') }}"
+
+- name: Install ServiceNow Agent (File 1)
+  block:
+    - name: Install SnowAgent from File 1
+      win_command: msiexec.exe /i "{{ instfile1 }}" /qn
+      register: insop1
+
+    - name: Set File 1 install status to SUCCESS
+      set_fact:
+        install_results: "{{ install_results | combine({'Filename1InstallStatus': 'SUCCESS'}) }}"
+  rescue:
+    - name: Debug failure message for File 1
+      debug:
+        msg: "Installation of File 1 failed with error: {{ insop1.stderr if insop1.stderr else 'Unknown error' }}"
+
+    - name: Set File 1 install status to FAILED
+      set_fact:
+        install_results: "{{ install_results | combine({'Filename1InstallStatus': 'FAILED'}) }}"
+
+- name: Install ServiceNow Agent (File 2, if provided)
+  block:
+    - name: Install SnowAgent from File 2
+      win_command: msiexec.exe /i "{{ instfile2 }}" /qn
+      register: insop2
+
+    - name: Set File 2 install status to SUCCESS
+      set_fact:
+        install_results: "{{ install_results | combine({'Filename2InstallStatus': 'SUCCESS'}) }}"
+  when: filename2 is defined and filename2 | length > 0
+  rescue:
+    - name: Debug failure message for File 2
+      debug:
+        msg: "Installation of File 2 failed with error: {{ insop2.stderr if insop2.stderr else 'Unknown error' }}"
+
+    - name: Set File 2 install status to FAILED
+      set_fact:
+        install_results: "{{ install_results | combine({'Filename2InstallStatus': 'FAILED'}) }}"
+
+- name: Verify installed version
+  win_shell: |
+    $tool="snow"
+    $installed = Get-WmiObject Win32_Product -Filter "name LIKE '%$tool%'"
+    if ($installed) { Write-Output $installed.Version }
+  register: installed_version
+  failed_when: false
+
+- name: Check ServiceNow Agent service status
+  win_service:
+    name: "SnowAgent"
+  register: service_status
+  failed_when: false
+
+- name: Update installation results
+  set_fact:
+    install_results: "{{ install_results | combine({
+      'ServerName': ansible_hostname,
+      'SNOWAgentVersion': installed_version.stdout | default('Not Installed'),
+      'ServiceStatus': 'RUNNING' if service_status.state == 'running' else 'STOPPED'
+    }) }}"
+
+- name: Print summary of installation results
+  debug:
+    msg: "Server: {{ install_results.ServerName }} | SNOWAgentVersion: {{ install_results.SNOWAgentVersion }} | ServiceStatus: {{ install_results.ServiceStatus }} | File1InstallStatus: {{ install_results.Filename1InstallStatus | default('N/A') }} | File2InstallStatus: {{ install_results.Filename2InstallStatus | default('N/A') }}"
+
+- name: Ensure CSV file exists with headers (only on first run)
+  delegate_to: localhost
+  run_once: true
+  copy:
+    dest: "{{ local_csv_file }}"
+    content: "ServerName,SNOWAgentVersion,ServiceStatus,Filename1InstallStatus,Filename2InstallStatus\n"
+    force: no
+
+- name: Append results to CSV safely
+  delegate_to: localhost
+  blockinfile:
+    path: "{{ local_csv_file }}"
+    marker: ""
+    insertafter: EOF
+    block: |
+      {{ install_results.ServerName }},{{ install_results.SNOWAgentVersion }},{{ install_results.ServiceStatus }},{{ install_results.Filename1InstallStatus | default('N/A') }},{{ install_results.Filename2InstallStatus | default('N/A') }}
+
