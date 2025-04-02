@@ -128,7 +128,7 @@
     content: "ServerName,SNOWAgentVersion,ServiceStatus,Filename1InstallStatus,Filename2InstallStatus\n"
     force: no
     mode: '0644'
-  become: false
+  become: true
 
 - name: Append results to CSV safely
   delegate_to: localhost
