@@ -26,7 +26,11 @@
 - name: Fail if required files are missing
   fail:
     msg: "[FAILED] Missing required file: {{ item.item }}"
-  when: item.item is defined and item.item | length > 0 and not item.stat.exists
+  when: 
+    - item.item is defined 
+    - item.item | length > 0 
+    - item.stat is defined 
+    - not item.stat.exists
   loop: "{{ file_check.results }}"
 
 - name: Uninstall old ServiceNow agent if present
