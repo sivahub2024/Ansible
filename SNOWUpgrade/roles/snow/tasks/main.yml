@@ -7,7 +7,7 @@
   set_fact:
     instfile1: "{{ tempdir }}\\{{ filename1 }}"
     instfile2: "{{ tempdir }}\\{{ filename2 | default(omit) }}"
-    local_csv_file: "/var/tmp/snow_install_results.csv"
+    local_csv_file: "/home/user1/reports/snow_install_results.csv"
     install_results: {}
 
 - name: Ensure installation directory exists
