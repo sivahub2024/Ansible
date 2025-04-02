@@ -120,6 +120,14 @@
   debug:
     msg: "Server: {{ install_results.ServerName }} | SNOWAgentVersion: {{ install_results.SNOWAgentVersion }} | ServiceStatus: {{ install_results.ServiceStatus }} | File1InstallStatus: {{ install_results.Filename1InstallStatus | default('N/A') }} | File2InstallStatus: {{ install_results.Filename2InstallStatus | default('N/A') }}"
 
+- name: Ensure reports directory exists on control node
+  delegate_to: localhost
+  ansible.builtin.file:
+    path: "/home/user1/reports"
+    state: directory
+    mode: '0755'
+    run_once: true
+  
 - name: Ensure CSV file exists with headers (only on first run)
   delegate_to: localhost
   run_once: true
@@ -127,8 +135,6 @@
     dest: "{{ local_csv_file }}"
     content: "ServerName,SNOWAgentVersion,ServiceStatus,Filename1InstallStatus,Filename2InstallStatus\n"
     force: no
-    mode: '0644'
-  become: true
 
 - name: Append results to CSV safely
   delegate_to: localhost
