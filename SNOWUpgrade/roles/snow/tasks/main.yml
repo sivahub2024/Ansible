@@ -113,7 +113,7 @@
     install_results: "{{ install_results | combine({
       'ServerName': ansible_hostname,
       'SNOWAgentVersion': installed_version.stdout | default('Not Installed'),
-      'ServiceStatus': 'RUNNING' if service_status.state == 'running' else 'STOPPED'
+      'ServiceStatus': service_status.state | default('NOT FOUND')
     }) }}"
 
 - name: Print summary of installation results
