@@ -112,7 +112,7 @@
   set_fact:
     install_results: "{{ install_results | combine({
       'ServerName': ansible_hostname,
-      'SNOWAgentVersion': installed_version.stdout | default('Not Installed'),
+      'SNOWAgentVersion': (installed_version.stdout | trim) | default('Not Installed', true),
       'ServiceStatus': service_status.state | default('NOT FOUND')
     }) }}"
 
@@ -127,6 +127,7 @@
     dest: "{{ local_csv_file }}"
     content: "ServerName,SNOWAgentVersion,ServiceStatus,Filename1InstallStatus,Filename2InstallStatus\n"
     force: no
+    mode: '0644'
 
 - name: Append results to CSV safely
   delegate_to: localhost
